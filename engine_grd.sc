@@ -1,7 +1,7 @@
 Engine_Grd : CroneEngine {
 
 	var group,sample,map,d2k;
-	var duration, root, mode, mindex;
+	var duration, root, mode, mindex, lpf_type, lpf_freq, lpf_q;
 	var confetti, sound;
 
 	*new { |context, doneCallback| ^super.new(context, doneCallback) }
@@ -31,6 +31,10 @@ Engine_Grd : CroneEngine {
 		sprkl = Pseries(0,1,confetti.size-1).loop.stutter(3).asStream;
 		duration = 1;
 		root = 50;
+		// 0: disabled; 1: LPF; 2: Resonant LPF
+		lpf_type = 0; 
+		lpf_freq = 20000;
+		lpf_q = 1;
 		group  = ParGroup.tail(context.xg);
 		sample = Sample.celesta;
 		map    = sample.map;
@@ -54,7 +58,7 @@ Engine_Grd : CroneEngine {
 			sine: { |dur| Env.sine(dur).kr(2) },
 			perc: { |dur| Env.perc(dur,0.01,1,6).kr(2) }
 		).keysValuesDo { |n,e|
-			SynthDef(n, { |buf,rate=1,pos=0,amp=1,dur=1,pan=0|
+			SynthDef(n, { |buf,rate=1,pos=0,amp=1,dur=1,pan=0,lpf_type=0,lpf_freq=20000,lpf_q=1|
 				var sig, env;
 				sig = PlayBuf.ar(
 					1, buf,
@@ -62,6 +66,11 @@ Engine_Grd : CroneEngine {
 					1,
 					pos*BufFrames.ir(buf)
 				);
+				sig = RLPF.ar(sig, lpf_freq, lpf_q, 1.0, 0.0);
+				// if (lpf_type==1,
+				//    { sig = LPF.ar(sig, lpf_freq) });
+				// if (lpf_type==2,
+			    //    { sig = RLPF.ar(sig, lpf_freq, lpf_q, 1.0, 0.0) });
 				env = SynthDef.wrap(e,prependArgs:[dur]);
 				sig = sig * env * amp;
 				sig = LinPan2.ar(sig, pan);
@@ -80,6 +89,9 @@ Engine_Grd : CroneEngine {
 						  amp:  dbamp(m[i*8+4].linlin(-1,1,-12,-3)-(i*1.5)),
 					  	dur:  duration*[m[i*8+5].linlin(-1,1,0.05,0.3),2].wchoose([0.9,0.1]),
 					  	pan:  m[i*8+6],
+						lpf_type: lpf_type,
+					  	lpf_freq: lpf_freq,
+						lpf_q: lpf_q,
 					  ], group);
 			    };
 			 });
@@ -94,6 +106,9 @@ Engine_Grd : CroneEngine {
 		  				amp:  dbamp(m[i*8+4].linlin(-1,1,-12,-3)-(i*1.5)),
 		  				dur:  duration*[m[i*8+5].linlin(-1,1,0.05,0.3),2].wchoose([0.9,0.1]),
 		  				pan:  m[i*8+6],
+						lpf_type: lpf_type,
+						lpf_freq: lpf_freq,
+						lpf_q: lpf_q,
 		  			], group);
 		  		};
 		  	});
@@ -107,6 +122,9 @@ Engine_Grd : CroneEngine {
 						  amp:  dbamp(m[i*8+4].linlin(-1,1,-12,-3)-(i*1.5)),
 					  	dur:  duration*[m[i*8+5].linlin(-1,1,0.05,0.3),2].wchoose([0.9,0.1]),
 					  	pan:  m[i*8+6],
+						lpf_type: lpf_type,
+						lpf_freq: lpf_freq,
+						lpf_q: lpf_q,
 					  ], group);
 			    };
 			 });
@@ -122,6 +140,15 @@ Engine_Grd : CroneEngine {
 		});
 		this.addCommand(\set_sound, "i", { |m|
 			sound = m[1]
+		});
+		this.addCommand(\set_lpf_type, "f", { |m|
+			lpf_type = m[1]
+		});
+		this.addCommand(\set_lpf_freq, "f", { |m|
+			lpf_freq = m[1].asInteger
+		});
+		this.addCommand(\set_lpf_q, "f", { |m|
+			lpf_q = m[1]
 		});
 	}
 	free { sample.free; confetti.do(_.do(_.free)); }
